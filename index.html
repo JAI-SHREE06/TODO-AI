@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TODO AI — Task Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #7c6cfc;
+    --accent2: #fc6c8f;
+    --accent3: #6cfcd4;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --glow: rgba(124, 108, 252, 0.15);
+  }
+
+  :root.light {
+    --bg: #f4f3ff;
+    --surface: #ffffff;
+    --surface2: #ede9fe;
+    --border: #d4cffe;
+    --accent: #6152e8;
+    --accent2: #e83d6e;
+    --accent3: #0dba8a;
+    --text: #1a1730;
+    --muted: #8880aa;
+    --glow: rgba(97, 82, 232, 0.12);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background 0.35s, color 0.35s;
+  }
+
+  /* Background mesh */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 20%, rgba(124,108,252,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 90% 80%, rgba(252,108,143,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(108,252,212,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.35s;
+  }
+
+  :root.light body::before {
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 20%, rgba(97,82,232,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 90% 80%, rgba(232,61,110,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(13,186,138,0.04) 0%, transparent 70%);
+  }
+
+  /* Global transition for theme switch */
+  .input-area, .task-item, .modal, .focus-mode-bar,
+  .filter-btn, .sort-select, .priority-btn, .tag-btn, .date-btn,
+  .action-btn, .modal-input, .modal-select, .stat-divider, .progress-track {
+    transition: background 0.35s, border-color 0.35s, color 0.35s, box-shadow 0.35s;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.4rem;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 30px;
+    background: var(--border);
+  }
+
+  /* PROGRESS BAR */
+  .progress-section {
+    margin-bottom: 32px;
+  }
+
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .progress-label {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .progress-pct {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent3);
+  }
+
+  .progress-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    border-radius: 2px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: -4px;
+    width: 11px; height: 11px;
+    background: var(--accent3);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent3);
+  }
+
+  /* INPUT AREA */
+  .input-area {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .input-area:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 40px var(--glow);
+  }
+
+  .main-input-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .task-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.95rem;
+    caret-color: var(--accent);
+  }
+
+  .task-input::placeholder { color: var(--muted); }
+
+  .add-btn {
+    width: 38px; height: 38px;
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .add-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 20px rgba(124,108,252,0.5);
+  }
+
+  .add-btn:active { transform: scale(0.95); }
+
+  .input-meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .meta-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .meta-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .priority-btn, .tag-btn, .date-btn {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .priority-btn:hover, .tag-btn:hover, .date-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .priority-btn.active-high { border-color: var(--accent2); color: var(--accent2); background: rgba(252,108,143,0.08); }
+  .priority-btn.active-med { border-color: #fcbc6c; color: #fcbc6c; background: rgba(252,188,108,0.08); }
+  .priority-btn.active-low { border-color: var(--accent3); color: var(--accent3); background: rgba(108,252,212,0.08); }
+
+  /* FILTERS */
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .sort-select {
+    margin-left: auto;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .sort-select:focus { border-color: var(--accent); }
+
+  /* TASKS */
+  .tasks-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .section-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 10px 0 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+
+  .task-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    transition: all 0.25s;
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .task-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 12px 0 0 12px;
+  }
+
+  .task-item.priority-high::before { background: var(--accent2); }
+  .task-item.priority-med::before { background: #fcbc6c; }
+  .task-item.priority-low::before { background: var(--accent3); }
+  .task-item.priority-none::before { background: var(--border); }
+
+  .task-item:hover {
+    border-color: #3a3a50;
+    transform: translateX(2px);
+    box-shadow: -4px 0 20px rgba(124,108,252,0.08);
+  }
+
+  .task-item.completed {
+    opacity: 0.5;
+  }
+
+  .task-item.completed .task-text {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  .checkbox {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.75rem;
+  }
+
+  .checkbox:hover { border-color: var(--accent); }
+  .checkbox.checked { background: var(--accent); border-color: var(--accent); }
+
+  .task-body { flex: 1; min-width: 0; }
+
+  .task-text {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.5;
+    word-break: break-word;
+    margin-bottom: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .task-meta-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .task-tag {
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .task-tag.work { border-color: var(--accent); color: var(--accent); }
+  .task-tag.personal { border-color: var(--accent2); color: var(--accent2); }
+  .task-tag.health { border-color: var(--accent3); color: var(--accent3); }
+  .task-tag.learn { border-color: #fcbc6c; color: #fcbc6c; }
+
+  .task-date {
+    font-size: 0.6rem;
+    color: var(--muted);
+  }
+
+  .task-date.overdue { color: var(--accent2); }
+  .task-date.today { color: var(--accent3); }
+
+  .task-priority-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 7px;
+  }
+
+  .priority-high .task-priority-dot { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .priority-med .task-priority-dot { background: #fcbc6c; box-shadow: 0 0 6px #fcbc6c; }
+  .priority-low .task-priority-dot { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+  .priority-none .task-priority-dot { background: var(--border); }
+
+  .task-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+
+  .task-item:hover .task-actions { opacity: 1; }
+
+  .action-btn {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .action-btn:hover.delete { border-color: var(--accent2); color: var(--accent2); }
+  .action-btn:hover.edit { border-color: var(--accent); color: var(--accent); }
+  .action-btn:hover.timer { border-color: var(--accent3); color: var(--accent3); }
+
+  /* TIMER */
+  .timer-display {
+    font-size: 0.65rem;
+    color: var(--accent3);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* FOCUS MODE */
+  .focus-mode-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(10,10,15,0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .focus-mode-bar.visible { transform: translateY(0); }
+
+  .focus-task-name {
+    flex: 1;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .focus-timer {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: var(--accent3);
+    min-width: 70px;
+    text-align: center;
+  }
+
+  .focus-label {
+    font-size: 0.58rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .focus-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .focus-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .focus-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .focus-btn:hover { opacity: 0.8; }
+
+  /* EDIT MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+
+  .modal-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    margin: 20px;
+    transform: scale(0.95);
+    transition: transform 0.25s;
+  }
+
+  .modal-overlay.visible .modal { transform: scale(1); }
+
+  .modal-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .modal-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.88rem;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+
+  .modal-input:focus { border-color: var(--accent); }
+
+  .modal-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .modal-select {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    outline: none;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .modal-btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .modal-btn:hover { opacity: 0.8; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+
+  .empty-text {
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 0.75rem;
+    color: var(--text);
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* POMODORO RING */
+  .pomodoro-ring {
+    width: 42px; height: 42px;
+    flex-shrink: 0;
+  }
+
+  .ring-track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 3;
+  }
+
+  .ring-progress {
+    fill: none;
+    stroke: var(--accent3);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 113;
+    stroke-dashoffset: 113;
+    transition: stroke-dashoffset 0.5s;
+    transform: rotate(-90deg);
+    transform-origin: center;
+  }
+
+  /* SCROLL */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 600px) {
+    header { flex-direction: column; gap: 20px; align-items: flex-start; }
+    .header-stats { align-self: flex-end; }
+  }
+
+  /* THEME TOGGLE */
+  .theme-toggle {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .theme-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.35s, border-color 0.35s;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+  }
+
+  .toggle-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.35s;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.3);
+  }
+
+  .theme-toggle input:checked ~ .toggle-track .toggle-thumb {
+    transform: translateX(24px);
+  }
+
+  :root.light .toggle-track {
+    background: #e0deff;
+    border-color: #c4bfff;
+  }
+
+  :root.light .toggle-thumb {
+    background: var(--accent);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <header>
+    <div>
+      <div class="logo">FLUX</div>
+      <div class="tagline">Task Intelligence System</div>
+    </div>
+      <div class="header-right">
+      <div class="header-stats">
+        <div class="stat">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-num" id="stat-done">0</div>
+          <div class="stat-label">Done</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-num" id="stat-focus" style="color: var(--accent3)">0</div>
+          <div class="stat-label">Focus min</div>
+        </div>
+      </div>
+      <label class="theme-toggle" title="Toggle light / dark mode">
+        <input type="checkbox" id="theme-checkbox">
+        <div class="toggle-track">
+          <div class="toggle-thumb" id="toggle-thumb">🌙</div>
+        </div>
+      </label>
+    </div>
+  </header>
+
+  <!-- Progress -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-label">Daily Progress</span>
+      <span class="progress-pct" id="progress-pct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="input-area">
+    <div class="main-input-row">
+      <input class="task-input" id="task-input" placeholder="Add a task... (press Enter)" autocomplete="off">
+      <button class="add-btn" id="add-btn" title="Add task">＋</button>
+    </div>
+    <div class="input-meta">
+      <div class="meta-group">
+        <span class="meta-label">Priority</span>
+        <button class="priority-btn" data-priority="high">🔴 High</button>
+        <button class="priority-btn" data-priority="med">🟡 Med</button>
+        <button class="priority-btn" data-priority="low">🟢 Low</button>
+      </div>
+      <div class="meta-group">
+        <span class="meta-label">Tag</span>
+        <button class="tag-btn" data-tag="work">Work</button>
+        <button class="tag-btn" data-tag="personal">Personal</button>
+        <button class="tag-btn" data-tag="health">Health</button>
+        <button class="tag-btn" data-tag="learn">Learn</button>
+      </div>
+      <div class="meta-group">
+        <span class="meta-label">Due</span>
+        <input type="date" class="date-btn" id="due-date" style="cursor:pointer;">
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="active">Active</button>
+    <button class="filter-btn" data-filter="completed">Done</button>
+    <button class="filter-btn" data-filter="high">🔴 High</button>
+    <button class="filter-btn" data-filter="today">Today</button>
+    <button class="filter-btn" data-filter="overdue">Overdue</button>
+    <select class="sort-select" id="sort-select">
+      <option value="created">Sort: Newest</option>
+      <option value="priority">Sort: Priority</option>
+      <option value="due">Sort: Due Date</option>
+      <option value="alpha">Sort: A→Z</option>
+    </select>
+  </div>
+
+  <!-- Tasks -->
+  <div class="tasks-wrapper" id="tasks-wrapper"></div>
+</div>
+
+<!-- Focus Mode Bar -->
+<div class="focus-mode-bar" id="focus-bar">
+  <div>
+    <div class="focus-label">FOCUS MODE</div>
+    <div class="focus-task-name" id="focus-task-name">—</div>
+  </div>
+  <svg class="pomodoro-ring" viewBox="0 0 42 42">
+    <circle class="ring-track" cx="21" cy="21" r="18"/>
+    <circle class="ring-progress" id="ring-progress" cx="21" cy="21" r="18"/>
+  </svg>
+  <div style="text-align:center">
+    <div class="focus-label">ELAPSED</div>
+    <div class="focus-timer" id="focus-timer">00:00</div>
+  </div>
+  <div class="focus-controls">
+    <button class="focus-btn primary" id="focus-pause-btn">Pause</button>
+    <button class="focus-btn" id="focus-stop-btn">Stop</button>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">Edit Task</div>
+    <input class="modal-input" id="modal-text" placeholder="Task description">
+    <div class="modal-row">
+      <select class="modal-select" id="modal-priority">
+        <option value="none">No Priority</option>
+        <option value="high">🔴 High</option>
+        <option value="med">🟡 Medium</option>
+        <option value="low">🟢 Low</option>
+      </select>
+      <select class="modal-select" id="modal-tag">
+        <option value="">No Tag</option>
+        <option value="work">Work</option>
+        <option value="personal">Personal</option>
+        <option value="health">Health</option>
+        <option value="learn">Learn</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <input type="date" class="modal-select" id="modal-date" style="flex:1">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn" id="modal-cancel">Cancel</button>
+      <button class="modal-btn primary" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== STATE =====================
+let tasks = JSON.parse(localStorage.getItem('flux-tasks') || '[]');
+let filter = 'all';
+let sortMode = 'created';
+let selectedPriority = '';
+let selectedTag = '';
+let editingId = null;
+let focusTaskId = null;
+let focusInterval = null;
+let focusSeconds = 0;
+let focusPaused = false;
+let totalFocusMinutes = parseInt(localStorage.getItem('flux-focus') || '0');
+const POMODORO_SECS = 25 * 60;
+
+// ===================== UTILS =====================
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function save() { localStorage.setItem('flux-tasks', JSON.stringify(tasks)); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff < 0) return { text: `${Math.abs(diff)}d overdue`, cls: 'overdue' };
+  if (diff === 0) return { text: 'Today', cls: 'today' };
+  if (diff === 1) return { text: 'Tomorrow', cls: '' };
+  return { text: d.toLocaleDateString('en', {month:'short',day:'numeric'}), cls: '' };
+}
+
+// ===================== RENDER =====================
+function render() {
+  const wrapper = document.getElementById('tasks-wrapper');
+
+  let list = [...tasks];
+
+  // Filter
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (filter === 'active') list = list.filter(t => !t.completed);
+  else if (filter === 'completed') list = list.filter(t => t.completed);
+  else if (filter === 'high') list = list.filter(t => t.priority === 'high');
+  else if (filter === 'today') list = list.filter(t => {
+    if (!t.due) return false;
+    const d = new Date(t.due + 'T00:00:00'); d.setHours(0,0,0,0);
+    return d.getTime() === today.getTime();
+  });
+  else if (filter === 'overdue') list = list.filter(t => {
+    if (!t.due || t.completed) return false;
+    const d = new Date(t.due + 'T00:00:00'); d.setHours(0,0,0,0);
+    return d < today;
+  });
+
+  // Sort
+  const priorityOrder = {high:0, med:1, low:2, none:3};
+  if (sortMode === 'priority') list.sort((a,b) => (priorityOrder[a.priority]||3)-(priorityOrder[b.priority]||3));
+  else if (sortMode === 'due') list.sort((a,b) => {
+    if (!a.due && !b.due) return 0;
+    if (!a.due) return 1; if (!b.due) return -1;
+    return a.due.localeCompare(b.due);
+  });
+  else if (sortMode === 'alpha') list.sort((a,b) => a.text.localeCompare(b.text));
+  else list.sort((a,b) => b.createdAt - a.createdAt);
+
+  // Active / completed split
+  const active = list.filter(t => !t.completed);
+  const done = list.filter(t => t.completed);
+
+  wrapper.innerHTML = '';
+
+  if (active.length === 0 && done.length === 0) {
+    wrapper.innerHTML = `<div class="empty-state"><div class="empty-icon">◈</div><div class="empty-text">No tasks yet. Add one above.</div></div>`;
+  } else {
+    if (active.length > 0) {
+      if (done.length > 0) {
+        const lbl = document.createElement('div');
+        lbl.className = 'section-label';
+        lbl.textContent = `Active — ${active.length}`;
+        wrapper.appendChild(lbl);
+      }
+      active.forEach(t => wrapper.appendChild(makeTaskEl(t)));
+    }
+    if (done.length > 0) {
+      const lbl = document.createElement('div');
+      lbl.className = 'section-label';
+      lbl.textContent = `Completed — ${done.length}`;
+      wrapper.appendChild(lbl);
+      done.forEach(t => wrapper.appendChild(makeTaskEl(t)));
+    }
+  }
+
+  // Stats
+  const total = tasks.length;
+  const completed = tasks.filter(t => t.completed).length;
+  const pct = total === 0 ? 0 : Math.round(completed / total * 100);
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-done').textContent = completed;
+  document.getElementById('stat-focus').textContent = totalFocusMinutes;
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function makeTaskEl(task) {
+  const el = document.createElement('div');
+  el.className = `task-item priority-${task.priority || 'none'} ${task.completed ? 'completed' : ''}`;
+  el.dataset.id = task.id;
+
+  const dueFmt = formatDate(task.due);
+  const timerDisplay = task.focusTime > 0 ? `<div class="timer-display">⏱ ${Math.floor(task.focusTime/60)}m focused</div>` : '';
+
+  el.innerHTML = `
+    <div class="task-priority-dot"></div>
+    <div class="checkbox ${task.completed ? 'checked' : ''}" data-action="toggle">
+      ${task.completed ? '✓' : ''}
+    </div>
+    <div class="task-body">
+      <div class="task-text">${escHtml(task.text)}</div>
+      <div class="task-meta-row">
+        ${task.tag ? `<span class="task-tag ${task.tag}">${task.tag}</span>` : ''}
+        ${dueFmt ? `<span class="task-date ${dueFmt.cls}">${dueFmt.text}</span>` : ''}
+        ${task.priority && task.priority !== 'none' ? `<span style="font-size:0.6rem;color:var(--muted)">${task.priority === 'high' ? '🔴' : task.priority === 'med' ? '🟡' : '🟢'}</span>` : ''}
+      </div>
+      ${timerDisplay}
+    </div>
+    <div class="task-actions">
+      <button class="action-btn timer" data-action="focus" title="Start focus timer">⏱</button>
+      <button class="action-btn edit" data-action="edit" title="Edit task">✎</button>
+      <button class="action-btn delete" data-action="delete" title="Delete task">✕</button>
+    </div>
+  `;
+
+  el.addEventListener('click', (e) => {
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (!action) return;
+    if (action === 'toggle') toggleTask(task.id);
+    else if (action === 'delete') deleteTask(task.id);
+    else if (action === 'edit') openEdit(task.id);
+    else if (action === 'focus') startFocus(task.id);
+  });
+
+  return el;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===================== ACTIONS =====================
+function addTask() {
+  const input = document.getElementById('task-input');
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+
+  const task = {
+    id: genId(),
+    text,
+    priority: selectedPriority || 'none',
+    tag: selectedTag || '',
+    due: document.getElementById('due-date').value || '',
+    completed: false,
+    createdAt: Date.now(),
+    focusTime: 0
+  };
+
+  tasks.unshift(task);
+  save();
+  render();
+
+  input.value = '';
+  document.getElementById('due-date').value = '';
+  // Reset selections
+  selectedPriority = '';
+  selectedTag = '';
+  document.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('active-high','active-med','active-low'));
+  document.querySelectorAll('.tag-btn').forEach(b => b.style.borderColor = '');
+
+  showToast('Task added ✓');
+}
+
+function toggleTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  t.completed = !t.completed;
+  save();
+  render();
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  save();
+  render();
+  showToast('Task removed');
+}
+
+function openEdit(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  editingId = id;
+  document.getElementById('modal-text').value = t.text;
+  document.getElementById('modal-priority').value = t.priority || 'none';
+  document.getElementById('modal-tag').value = t.tag || '';
+  document.getElementById('modal-date').value = t.due || '';
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+
+function saveEdit() {
+  const t = tasks.find(t => t.id === editingId);
+  if (!t) return;
+  t.text = document.getElementById('modal-text').value.trim() || t.text;
+  t.priority = document.getElementById('modal-priority').value;
+  t.tag = document.getElementById('modal-tag').value;
+  t.due = document.getElementById('modal-date').value;
+  save();
+  render();
+  closeModal();
+  showToast('Task updated ✓');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('visible');
+  editingId = null;
+}
+
+// ===================== FOCUS TIMER =====================
+function startFocus(id) {
+  if (focusTaskId === id && focusInterval) {
+    showToast('Already focusing on this task');
+    return;
+  }
+  if (focusInterval) stopFocus();
+
+  focusTaskId = id;
+  focusSeconds = 0;
+  focusPaused = false;
+
+  const t = tasks.find(t => t.id === id);
+  document.getElementById('focus-task-name').textContent = t ? t.text : '—';
+  document.getElementById('focus-bar').classList.add('visible');
+  document.getElementById('focus-pause-btn').textContent = 'Pause';
+
+  updateFocusUI();
+
+  focusInterval = setInterval(() => {
+    if (!focusPaused) {
+      focusSeconds++;
+      updateFocusUI();
+
+      if (focusSeconds % 60 === 0) {
+        totalFocusMinutes++;
+        localStorage.setItem('flux-focus', totalFocusMinutes);
+        const ft = tasks.find(t => t.id === focusTaskId);
+        if (ft) { ft.focusTime = (ft.focusTime || 0) + 60; save(); }
+        render();
+      }
+
+      if (focusSeconds >= POMODORO_SECS) {
+        stopFocus();
+        showToast('🍅 Pomodoro complete! 25 minutes focused.');
+      }
+    }
+  }, 1000);
+}
+
+function updateFocusUI() {
+  const m = String(Math.floor(focusSeconds / 60)).padStart(2,'0');
+  const s = String(focusSeconds % 60).padStart(2,'0');
+  document.getElementById('focus-timer').textContent = `${m}:${s}`;
+  const progress = focusSeconds / POMODORO_SECS;
+  const offset = 113 - (113 * progress);
+  document.getElementById('ring-progress').style.strokeDashoffset = offset;
+}
+
+function pauseFocus() {
+  focusPaused = !focusPaused;
+  document.getElementById('focus-pause-btn').textContent = focusPaused ? 'Resume' : 'Pause';
+}
+
+function stopFocus() {
+  clearInterval(focusInterval);
+  focusInterval = null;
+  focusTaskId = null;
+  focusPaused = false;
+  focusSeconds = 0;
+  document.getElementById('focus-bar').classList.remove('visible');
+  document.getElementById('ring-progress').style.strokeDashoffset = 113;
+}
+
+// ===================== THEME TOGGLE =====================
+const themeCheckbox = document.getElementById('theme-checkbox');
+const toggleThumb = document.getElementById('toggle-thumb');
+const root = document.documentElement;
+
+const savedTheme = localStorage.getItem('flux-theme') || 'dark';
+if (savedTheme === 'light') {
+  root.classList.add('light');
+  themeCheckbox.checked = true;
+  toggleThumb.textContent = '☀️';
+}
+
+themeCheckbox.addEventListener('change', () => {
+  if (themeCheckbox.checked) {
+    root.classList.add('light');
+    toggleThumb.textContent = '☀️';
+    localStorage.setItem('flux-theme', 'light');
+  } else {
+    root.classList.remove('light');
+    toggleThumb.textContent = '🌙';
+    localStorage.setItem('flux-theme', 'dark');
+  }
+});
+
+// ===================== EVENTS =====================
+document.getElementById('task-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+
+document.getElementById('add-btn').addEventListener('click', addTask);
+
+document.querySelectorAll('.priority-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = btn.dataset.priority;
+    if (selectedPriority === p) {
+      selectedPriority = '';
+      document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
+    } else {
+      selectedPriority = p;
+      document.querySelectorAll('.priority-btn').forEach(b => b.className = 'priority-btn');
+      btn.classList.add(`active-${p}`);
+    }
+  });
+});
+
+document.querySelectorAll('.tag-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tag = btn.dataset.tag;
+    if (selectedTag === tag) {
+      selectedTag = '';
+      document.querySelectorAll('.tag-btn').forEach(b => b.style.cssText = '');
+    } else {
+      selectedTag = tag;
+      document.querySelectorAll('.tag-btn').forEach(b => b.style.cssText = '');
+      const colors = {work:'var(--accent)', personal:'var(--accent2)', health:'var(--accent3)', learn:'#fcbc6c'};
+      btn.style.borderColor = colors[tag] || '';
+      btn.style.color = colors[tag] || '';
+    }
+  });
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    filter = btn.dataset.filter;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  });
+});
+
+document.getElementById('sort-select').addEventListener('change', e => {
+  sortMode = e.target.value;
+  render();
+});
+
+document.getElementById('focus-pause-btn').addEventListener('click', pauseFocus);
+document.getElementById('focus-stop-btn').addEventListener('click', () => { stopFocus(); showToast('Focus session ended'); });
+
+document.getElementById('modal-save').addEventListener('click', saveEdit);
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// Set min date for date inputs
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('due-date').min = today;
+document.getElementById('modal-date').min = today;
+
+// ===================== SEED DATA =====================
+if (tasks.length === 0) {
+  const seed = [
+    { text: 'Review Q2 performance report', priority: 'high', tag: 'work', due: today, completed: false },
+    { text: 'Morning run — 5km', priority: 'med', tag: 'health', due: today, completed: true },
+    { text: 'Read "Thinking in Systems" chapter 3', priority: 'low', tag: 'learn', due: '', completed: false },
+    { text: 'Grocery shopping', priority: 'med', tag: 'personal', due: '', completed: false },
+  ];
+  tasks = seed.map((t,i) => ({ ...t, id: genId(), createdAt: Date.now() - i*1000, focusTime: i===1 ? 1500 : 0 }));
+  save();
+}
+
+render();
+</script>
+</body>
+</html>
